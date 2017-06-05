@@ -4,8 +4,10 @@ async-timeout==1.2.1
 beautifulsoup4==4.6.0
 chardet==3.0.3
 feedparser==5.2.1
+motor==1.1
 multidict==2.1.6
 psycopg2==2.7.1
+pymongo==3.4.0
 python-dateutil==2.6.0
 pytz==2017.2
 six==1.10.0

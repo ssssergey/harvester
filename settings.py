@@ -1,9 +1,10 @@
 import os
 import logging
 from logging.handlers import RotatingFileHandler
-
 import collections
+
 from pytz import timezone
+import motor.motor_asyncio
 
 DEBUG = os.environ.get('DEBUG', False)
 
@@ -35,11 +36,21 @@ logger_history.addHandler(handler2)
 
 # STORAGES
 USE_POSTGRESQL = os.environ.get('POSTGRESQL', False)
+USE_MONGODB = os.environ.get('MONGODB', False)
 
 # POSTGRESQL
-PG_DB = os.environ.get('PG_DB')
+PG_DB = 'harvester_db'
 PG_USER = os.environ.get('PG_USER')
 PG_PASSWORD = os.environ.get('PG_PASSWORD')
+
+# MONGODB
+MONGO_HOST = os.environ.get('MONGO_HOST', 'localhost')
+MONGO_PORT = int(os.environ.get('MONGO_PORT', 27017))
+MONGO_URI = 'mongodb://localhost:27017'
+MONGO_DB = None
+if USE_MONGODB:
+    client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_HOST, MONGO_PORT)
+    MONGO_DB = client['harvester_db']
 
 STOP_WORDS = ['бокс[её]р', 'хоккеист', 'Бессмертн', 'зв[её]здны[а-я]{,2} войн', '\\bВойнов', '\\bПутин',
               'велик[а-я]{2} отечествен', 'втор[а-я]{2} миров', 'Война и мир', 'Лавров', 'Песков', 'Захарова', 'МО РФ:',
