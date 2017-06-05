@@ -417,7 +417,7 @@ class ArmenPress(BasePublisher):
 
 
 if __name__ == '__main__':
-    publisher = Irna()
+    publisher = Lenta()
     publisher.filter_links_from_rss()
     print('*' * 100)
     # for i in producer.entries_selected:

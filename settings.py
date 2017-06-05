@@ -37,6 +37,7 @@ logger_history.addHandler(handler2)
 # STORAGES
 USE_POSTGRESQL = os.environ.get('POSTGRESQL', False)
 USE_MONGODB = os.environ.get('MONGODB', False)
+USE_ELASTICSEARCH = os.environ.get('ELASTICSEARCH', False)
 
 # POSTGRESQL
 PG_DB = 'harvester_db'
@@ -51,6 +52,10 @@ MONGO_DB = None
 if USE_MONGODB:
     client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_HOST, MONGO_PORT)
     MONGO_DB = client['harvester_db']
+
+# ELASTICSEARCH
+ES_HOST = os.environ.get('ES_HOST', 'localhost')
+ES_PORT = int(os.environ.get('ES_PORT', 9200))
 
 STOP_WORDS = ['бокс[её]р', 'хоккеист', 'Бессмертн', 'зв[её]здны[а-я]{,2} войн', '\\bВойнов', '\\bПутин',
               'велик[а-я]{2} отечествен', 'втор[а-я]{2} миров', 'Война и мир', 'Лавров', 'Песков', 'Захарова', 'МО РФ:',
