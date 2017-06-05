@@ -68,6 +68,21 @@ class BasePublisher():
             keywords = [l.strip() for l in keywords]
         return keywords
 
+    def get_divs(self, soup, div_classes, tag='div'):
+        divs = []
+        for cls in div_classes:
+            divs.append(soup.find(tag, {'class': cls}))
+        divs = [div for div in divs if div]
+        return divs
+
+    def get_main_text(self, soup, div_classes, tag='div', recursive=False):
+        main_text = ''
+        divs = self.get_divs(soup, div_classes, tag=tag)
+        for div in divs:
+            for everyitem in div.findAll('p', recursive=recursive):
+                main_text += '\n' + everyitem.text
+        return main_text
+
 
 ########################################################################################
 
@@ -80,8 +95,7 @@ class ApaAz(BasePublisher):
         super().is_in_history(entry_link)
 
     def parse_body(self, soup, main_text=''):
-        for everyitem in soup.find('div', {'class': 'content'}).findAll('p'):
-            main_text = main_text + '\n' + everyitem.text
+        main_text = self.get_main_text(soup, ['content'])
         return main_text
 
 
@@ -96,7 +110,7 @@ class Apsny(BasePublisher):
         for trash in soup.findAll('strong'):
             trash.decompose()
         for everyitem in soup.find('td', {'class': 'newsbody'}).findAll('div', {'class': 'txt-item-news'}):
-            main_text = main_text + '\n' + everyitem.text
+            main_text += '\n' + everyitem.text
         return main_text
 
 
@@ -110,7 +124,7 @@ class Camto(BasePublisher):
             main_text = 'ПЛАТНАЯ СТАТЬЯ'
         else:
             for everyitem in soup.find('div', {'class': 'content'}).find('div', {'class': 'mainnews'}).findAll('div'):
-                main_text = main_text + '\n' + everyitem.text
+                main_text += '\n' + everyitem.text
         return main_text
 
 
@@ -119,9 +133,9 @@ class Irna(BasePublisher):
     rss = 'http://irna.ir//ru/rss.aspx?kind=701'
 
     def parse_body(self, soup, main_text=''):
-        main_text = main_text + '\n' + soup.find('h3', {
+        main_text += '\n' + soup.find('h3', {
             'id': 'ctl00_ctl00_ContentPlaceHolder_ContentPlaceHolder_NewsContent1_H1'}).text
-        main_text = main_text + '\n' + soup.find('p', {
+        main_text += '\n' + soup.find('p', {
             'id': 'ctl00_ctl00_ContentPlaceHolder_ContentPlaceHolder_NewsContent1_BodyLabel'}).text
         return main_text
 
@@ -133,7 +147,7 @@ class Kommersant(BasePublisher):
 
     def parse_body(self, soup, main_text=''):
         for everyitem in soup.findAll('p', {'class': 'b-article__text'}):
-            main_text = main_text + '\n' + everyitem.text
+            main_text += '\n' + everyitem.text
         return main_text
 
 
@@ -166,8 +180,7 @@ class NewsAsia(BasePublisher):
     rss = 'http://www.news-asia.ru/rss/all'
 
     def parse_body(self, soup, main_text=''):
-        for everyitem in soup.findAll('div', {'class': 'content'}):
-            main_text = main_text + '\n' + everyitem.text
+        main_text = self.get_main_text(soup, ['content'])
         return main_text
 
 
@@ -178,12 +191,7 @@ class RussiaToday(BasePublisher):
     def parse_body(self, soup, main_text=''):
         for everyitem in soup.findAll('p', {'class': 'disclaimer'}):
             everyitem.replaceWith('')
-        main_text_list = []
-        main_text_list.append(soup.find('div', {'class': 'article__summary'}))
-        main_text_list.append(soup.find('div', {'class': 'article__text'}))
-        if len(main_text_list) > 0:
-            main_text_list = [i.text.strip() for i in main_text_list if i and i.text]
-            main_text = '\n'.join(main_text_list)
+        main_text = self.get_main_text(soup, ['article__summary', 'article__text'])
         return main_text
 
 
@@ -224,11 +232,11 @@ class Ukrinform(BasePublisher):
     rss = 'http://www.ukrinform.ru/rss/'
 
     def parse_body(self, soup, main_text=''):
-        div = soup.find('div', {'class': 'newsText'})
-        if div:
+        divs = self.get_divs(soup, ['newsText'], tag='article')
+        for div in divs:
             for everyitem in div.findAll('p', recursive=False):
                 if "Читайте также:" not in everyitem.text:
-                    main_text = main_text + '\n' + everyitem.text
+                    main_text += '\n' + everyitem.text
         return main_text
 
 
@@ -237,21 +245,16 @@ class RBKRussia(BasePublisher):
     rss = 'http://static.feed.rbc.ru/rbc/internal/rss.rbc.ru/rbc.ru/mainnews.rss'
 
     def parse_body(self, soup, main_text=''):
-        for everyitem in soup.find('div', {'class': 'article__text'}).findAll('p'):
-            main_text = main_text + '\n' + everyitem.text
+        main_text = self.get_main_text(soup, ['article__text'])
         return main_text
 
 
 class BBC(BasePublisher):
     name = 'Би-Би-Си'
-    rss = 'http://russian.rt.com/rss/'
+    rss = 'http://www.bbc.co.uk/russian/index.xml'
 
     def parse_body(self, soup, main_text=''):
-        main_div = soup.find('div', {'class': 'story-body__inner'})
-        if not main_div: main_div = soup.find('div', {'class': 'map-body'})
-        if not main_div: return
-        for everyitem in main_div.findAll('p'):
-            main_text = main_text + '\n' + everyitem.text
+        main_text = self.get_main_text(soup, ['story-body__inner', 'map-body', 'story-body'])
         return main_text
 
 
@@ -261,7 +264,7 @@ class Lenta(BasePublisher):
 
     def parse_body(self, soup, main_text=''):
         for everyitem in soup.find('div', {'itemprop': 'articleBody'}).findAll('p'):
-            main_text = main_text + '\n' + everyitem.text
+            main_text += '\n' + everyitem.text
         return main_text
 
 
@@ -273,7 +276,7 @@ class Rian(BasePublisher):
         for everyitem in soup.findAll('p', {'style': 'text-align: center;'}):
             everyitem.replaceWith('')
         for everyitem in soup.find('div', {'itemprop': 'articleBody'}).findAll('p'):
-            main_text = main_text + '\n' + everyitem.text
+            main_text += '\n' + everyitem.text
         return main_text
 
 
@@ -284,7 +287,7 @@ class Trend(BasePublisher):
     def parse_body(self, soup, main_text=''):
         for everyitem in soup.find('div', {'itemprop': 'articleBody'}).findAll('p'):
             if "@www_Trend_Az" not in everyitem.text and "agency@trend.az" not in everyitem.text:
-                main_text = main_text + '\n' + everyitem.text
+                main_text += '\n' + everyitem.text
         return main_text
 
 
@@ -295,8 +298,9 @@ class KavkazUzel(BasePublisher):
     def parse_body(self, soup, main_text=''):
         for everyitem in soup.findAll('div', {'class': 'lt-feedback_banner pull-right hidden-phone'}):
             everyitem.replaceWith('')
-        for everyitem in soup.find('div', {'class': 'articles-body'}).findAll('p', recursive=False):
-            main_text = main_text + '\n' + everyitem.text
+
+        main_text = self.get_main_text(soup, ['articles-body'])
+        return main_text
 
 
 class Vedomosti(BasePublisher):
@@ -304,26 +308,7 @@ class Vedomosti(BasePublisher):
     rss = 'http://www.vedomosti.ru/newsline/out/rss.xml'
 
     def parse_body(self, soup, main_text=''):
-        for everyitem in soup.find('div', {'class': 'b-news-item__text b-news-item__text_one'}).findAll(
-                'p'):
-            main_text = main_text + '\n' + everyitem.text
-        return main_text
-
-
-class BlackSeaNews(BasePublisher):
-    name = 'BlackSeaNews'
-    rss = 'http://www.blackseanews.net/allnews/georgia.rss'
-
-    def parse_body(self, soup, main_text=''):
-        if 'Attention Required!' in soup.html.head.title.text:
-            return False
-        # ИЗВЛЕЧЕНИЕ ВРЕМЕНИ, ЗАГОЛОВКА И ТЕКСТА ПО HTML ТЭГАМ
-        for everyitem in soup.findAll('a', {'class': 'icon comment'}):
-            everyitem.replaceWith('')
-        for everyitem in soup.findAll('a', {'class': ' flagLinks-moldova'}):
-            everyitem.replaceWith('')
-        for everyitem in soup.findAll('div', {'id': 'contentText'}):
-            main_text = main_text + '\n' + everyitem.text
+        main_text = self.get_main_text(soup, ['b-news-item__text b-news-item__text_one'])
         return main_text
 
 
@@ -336,26 +321,21 @@ class ItarTass(BasePublisher):
             everyitem.replaceWith('')
         for everyitem in soup.findAll('div', {'class': 'b-links printHidden'}):
             everyitem.replaceWith('')
-        for everyitem in soup.findAll('div',
-                                      {'class': 'b-links b-links_mini b-links_right printHidden'}):
+        for everyitem in soup.findAll('div', {'class': 'b-links b-links_mini b-links_right printHidden'}):
             everyitem.replaceWith('')
         for everyitem in soup.findAll('a', {'target': '_blank'}):
             everyitem.replaceWith('')
-        for everyitem in soup.find('div', {'class': 'b-material-text__l'}).findAll('p', recursive=False):
-            main_text = main_text + '\n' + everyitem.text
+
+        main_text = self.get_main_text(soup, ['b-material-text__l'])
         return main_text
 
 
 class Rosbalt(BasePublisher):
     name = 'Росбалт'
-    rss = 'http://feeds.feedburner.com/rosbalt?format=xml'
+    rss = 'http://www.rosbalt.ru/feed/'
 
     def parse_body(self, soup, main_text=''):
-        # mat_cont = soup.find('div', {'id': 'mat_cont'})
-        for everyitem in soup.find('article').findAll('p'):
-            main_text = main_text + '\n' + everyitem.text
-        if not main_text:
-            main_text = soup.find('article').text
+        main_text = self.get_main_text(soup, ['newstext'])
         return main_text
 
 
@@ -364,8 +344,8 @@ class VPK(BasePublisher):
     rss = 'http://vpk-news.ru/feed'
 
     def parse_body(self, soup, main_text=''):
-        for everyitem in soup.findAll('div', {'class': 'field-item even'}):
-            main_text = main_text + '\n' + everyitem.text.strip()
+        div = soup.find('div', {'class': 'field-name-body'})
+        main_text = self.get_main_text(div, ['field-item even'])
         return main_text
 
 
@@ -375,19 +355,18 @@ class Fergana(BasePublisher):
 
     def parse_body(self, soup, main_text=''):
         for everyitem in soup.findAll('div', {'id': 'text'}):
-            main_text = main_text + '\n' + everyitem.text
+            main_text += '\n' + everyitem.text
         return main_text
 
 
 class Sputnik(BasePublisher):
     name = 'Спутник'
-    rss = 'http://newsgeorgia.ru/export/rss2/index.xml'
+    rss = 'https://sputnik-georgia.ru/export/rss2/archive/index.xml'
 
     def parse_body(self, soup, main_text=''):
         for everyitem in soup.findAll('div', {'class': 'b-inject'}):
             everyitem.replaceWith('')
-        for everyitem in soup.find('div', {'class': 'b-article__text'}).findAll('p', recursive=False):
-            main_text = main_text + '\n' + everyitem.text
+        main_text = self.get_main_text(soup, ['b-article__text'])
         return main_text
 
 
@@ -405,29 +384,7 @@ class Sana(BasePublisher):
     rss = 'http://sana.sy/ru/?feed=rss2'
 
     def parse_body(self, soup, main_text=''):
-        for everyitem in soup.find('div', {'class': 'entry'}).findAll('p'):
-            main_text = main_text + '\n' + everyitem.text
-        return main_text
-
-
-class RiaNovosti(BasePublisher):
-    name = 'РИА Новости'
-    rss = 'http://ria.ru/export/rss2/world/index.xml'
-
-    def parse_body(self, soup, main_text=''):
-        for everyitem in soup.findAll('div', {'class': 'inject_type2'}):
-            everyitem.replaceWith('')
-        main_text_list = []
-        if soup.find('div', {'id': 'article_full_text'}):
-            for everyitem in soup.find('div', {'id': 'article_full_text'}).findAll('p'):
-                if "Читайте также:" not in everyitem.text:
-                    main_text_list.append(everyitem)
-        if soup.find('div', {'class': 'b-article__body'}):
-            for everyitem in soup.find('div', {'class': 'b-article__body'}).findAll('p'):
-                if "Читайте также:" not in everyitem.text:
-                    main_text_list.append(everyitem)
-        main_text_list = [i.text.strip() for i in main_text_list if i and i.text]
-        main_text = '\n'.join(main_text_list)
+        main_text = self.get_main_text(soup, ['entry'])
         return main_text
 
 
@@ -436,8 +393,7 @@ class DAN(BasePublisher):
     rss = 'http://dan-news.info/feed'
 
     def parse_body(self, soup, main_text=''):
-        for everyitem in soup.find('div', {'class': 'entry'}).findAll('p'):
-            main_text = main_text + '\n' + everyitem.text
+        main_text = self.get_main_text(soup, ['entry'])
         return main_text
 
 
@@ -446,8 +402,7 @@ class Anadolu(BasePublisher):
     rss = 'http://aa.com.tr/ru/rss/default?cat=live'
 
     def parse_body(self, soup, main_text=''):
-        for everyitem in soup.find('div', {'class': 'article-post-content'}).findAll('p'):
-            main_text = main_text + '\n' + everyitem.text
+        main_text = self.get_main_text(soup, ['article-post-content'])
         return main_text
 
 
@@ -457,12 +412,12 @@ class ArmenPress(BasePublisher):
 
     def parse_body(self, soup, main_text=''):
         for everyitem in soup.find('span', {'itemprop': 'articleBody'}).findAll('p'):
-            main_text = main_text + '\n' + everyitem.text
+            main_text += '\n' + everyitem.text
         return main_text
 
 
 if __name__ == '__main__':
-    publisher = BBC()
+    publisher = Irna()
     publisher.filter_links_from_rss()
     print('*' * 100)
     # for i in producer.entries_selected:
