@@ -50,9 +50,7 @@ class BasePublisher():
 
             if self.entries_selected:
                 coro_downloads = [entry.download_entry(session) for entry in self.entries_selected]
-                futures = asyncio.as_completed(coro_downloads)
-                for future in futures:
-                    await future
+                await asyncio.gather(*coro_downloads)
             else:
                 print('No valid news')
 
