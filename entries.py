@@ -1,7 +1,6 @@
-import asyncio
 import re
 
-import aiohttp
+import async_timeout
 from bs4 import BeautifulSoup
 
 from settings import COUNTRIES_KEYWORDS, logger_history, logger_debug
@@ -17,16 +16,16 @@ class Entry():
         self.main_text = ''
         self.country = 'Другие'
 
-    async def download_entry(self):
+    async def download_entry(self, session):
         print('Start downloading {}'.format(self.link))
         try:
-            connector = aiohttp.TCPConnector(verify_ssl=False)
-            response = await asyncio.wait_for(aiohttp.request('GET', self.link, connector=connector), timeout=10)
+            with async_timeout.timeout(30):
+                response = await session.get(self.link)
             print('Finish downloading {}'.format(self.link))
             body = await response.read()
             body = body.decode(encoding=self.publisher.encoding)
         except Exception as e:
-            logger_debug.error('{}: {}'.format(e.__class__.__name__, e))
+            logger_debug.error('{}: {}'.format(e.__class__.__name__, self.publisher.name))
             return
         else:
             soup = BeautifulSoup(body, "html.parser")
@@ -34,8 +33,13 @@ class Entry():
                 script.decompose()
             for style in soup.findAll('style'):  # Delete all css styles from soup
                 style.decompose()
-            self.main_text = self.publisher.parse_body(soup) or ''
+            try:
+                self.main_text = self.publisher.parse_body(soup) or ''
+            except AttributeError as e:
+                logger_debug.error('{}: Parse Error: {}'.format(e.__class__.__name__, self.link))
+                return
             self.strip_main_text()
+            print(self.main_text)
             self.define_country()
             await save_entry(self)
             logger_history.warning(self.link)

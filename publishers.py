@@ -1,7 +1,11 @@
 import re
-from dateutil import parser
+from datetime import timedelta
 import asyncio
 
+import aiohttp
+import async_timeout
+from dateutil import parser
+import aiofiles
 import feedparser
 
 from entries import Entry
@@ -13,34 +17,48 @@ class BasePublisher():
     encoding = 'utf-8'
     name = None
     rss = None
-    entries_selected = []
+    time_correction = 0
 
-    def filter_links_from_rss(self):
+    def __init__(self):
+        self.entries_selected = []
+
+    async def filter_links_from_rss(self, session):
         """
         Download rss feed and filter it's entries
         """
         try:
-            rss_data = feedparser.parse(self.rss)
+            with async_timeout.timeout(30):
+                response = await session.get(self.rss)
+                content = await response.text()
         except Exception as e:
-            logger_debug.error('{}: {}'.format(e.__class__.__name__, e))
-        else:
-            if len(rss_data['entries']):
-                for entry in rss_data.get('entries'):
-                    try:
-                        publish_dt = parser.parse(entry.published).astimezone(CURRENT_TIMEZONE)
-                    except Exception as e:
-                        logger_debug.error('{}: {}'.format(e.__class__.__name__, e))
-                        continue
-                    try:
-                        if not self.is_in_history(entry.link) and self.matches_keyword(entry.title):
-                            self.entries_selected.append(Entry(entry.link, entry.title, publish_dt, self))
-                    except AttributeError as e:
-                        logger_debug.error('{}: {}'.format(e.__class__.__name__, e))
-                        continue
+            logger_debug.error('{}: RSS - {}'.format(e.__class__.__name__, self.name))
+            return
 
-    def matches_keyword(self, entry_title):
+        rss_data = feedparser.parse(content)
+
+        if len(rss_data['entries']):
+            for entry in rss_data.get('entries'):
+                publish_dt = parser.parse(entry.published) + timedelta(hours=self.time_correction)
+                try:
+                    is_in_history = await self.is_in_history(entry.link)
+                    matches_keyword = await self.matches_keyword(entry.title)
+                    if not is_in_history and matches_keyword:
+                        self.entries_selected.append(Entry(entry.link, entry.title, publish_dt, self))
+                except AttributeError as e:
+                    logger_debug.error('{}: {}'.format(e.__class__.__name__, e))
+                    continue
+
+            if self.entries_selected:
+                coro_downloads = [entry.download_entry(session) for entry in self.entries_selected]
+                futures = asyncio.as_completed(coro_downloads)
+                for future in futures:
+                    await future
+            else:
+                print('No valid news')
+
+    async def matches_keyword(self, entry_title):
         """ If the entry_title matches any theme keyword, return True """
-        keywords_list = self.get_keywords_list()
+        keywords_list = await self.get_keywords_list()
         for word in keywords_list:
             p = re.compile(word)
             if p.search(entry_title.lower()) or p.search(entry_title):
@@ -52,19 +70,19 @@ class BasePublisher():
                 return True
         return False
 
-    def is_in_history(self, entry_link):
+    async def is_in_history(self, entry_link):
         """ If the entry link have already been downloaded, return False """
-        with open(history_file, "a+", encoding='utf-8-sig') as f:
-            f.seek(0)
-            history_list = f.readlines()
-        if any(entry_link in line for line in history_list):
+        async with aiofiles.open(history_file, "a+", encoding='utf-8-sig') as f:
+            await f.seek(0)
+            history_list = await f.read()
+        if entry_link in history_list:
             return True
         return False
 
-    def get_keywords_list(self):
-        with open(keyword_file, "a+", encoding='utf-8-sig') as f:
-            f.seek(0)
-            keywords = f.readlines()
+    async def get_keywords_list(self):
+        async with aiofiles.open(keyword_file, "a+", encoding='utf-8-sig') as f:
+            await f.seek(0)
+            keywords = await f.readlines()
             keywords = [l.strip() for l in keywords]
         return keywords
 
@@ -90,10 +108,6 @@ class ApaAz(BasePublisher):
     name = 'APA.AZ'
     rss = 'http://ru.apa.az/rss'
 
-    def is_in_history(self, entry_link):
-        entry_link = entry_link.replace('http://az.apa', 'http://ru.apa')
-        super().is_in_history(entry_link)
-
     def parse_body(self, soup, main_text=''):
         main_text = self.get_main_text(soup, ['content'])
         return main_text
@@ -109,8 +123,7 @@ class Apsny(BasePublisher):
             trash.decompose()
         for trash in soup.findAll('strong'):
             trash.decompose()
-        for everyitem in soup.find('td', {'class': 'newsbody'}).findAll('div', {'class': 'txt-item-news'}):
-            main_text += '\n' + everyitem.text
+        main_text = soup.find('div', {'class': 'txt-item-news'}).text
         return main_text
 
 
@@ -131,6 +144,7 @@ class Camto(BasePublisher):
 class Irna(BasePublisher):
     name = 'ИРНА'
     rss = 'http://irna.ir//ru/rss.aspx?kind=701'
+    time_correction = -4.5
 
     def parse_body(self, soup, main_text=''):
         main_text += '\n' + soup.find('h3', {
@@ -417,15 +431,14 @@ class ArmenPress(BasePublisher):
 
 
 if __name__ == '__main__':
-    publisher = Lenta()
-    publisher.filter_links_from_rss()
-    print('*' * 100)
-    # for i in producer.entries_selected:
-    # print(i.title)
+    async def main(loop):
+        async with aiohttp.ClientSession(loop=loop) as session:
+            publisher = Lenta()
+            try:
+                await publisher.filter_links_from_rss(session)
+            except Exception as e:
+                logger_debug.error('{}: {}'.format(e.__class__.__name__, publisher.name))
 
-    if publisher.entries_selected:
-        loop = asyncio.get_event_loop()
-        aw = asyncio.wait([entry.download_entry() for entry in publisher.entries_selected])
-        loop.run_until_complete(aw)
-    else:
-        print('No valid news')
+
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main(loop))

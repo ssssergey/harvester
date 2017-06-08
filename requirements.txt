@@ -1,3 +1,5 @@
+aioelasticsearch==0.1.5
+aiofiles==0.3.1
 aiohttp==2.1.0
 aiopg==0.13.0
 async-timeout==1.2.1
@@ -10,8 +12,10 @@ multidict==2.1.6
 psycopg2==2.7.1
 pymongo==3.4.0
 python-dateutil==2.6.0
+python-slugify==1.2.4
 pytz==2017.2
 six==1.10.0
 SQLAlchemy==1.1.10
+Unidecode==0.4.20
 urllib3==1.21.1
 yarl==0.10.2
