@@ -27,9 +27,8 @@ class BasePublisher():
         Download rss feed and filter it's entries
         """
         try:
-            with async_timeout.timeout(30):
-                response = await session.get(self.rss)
-                content = await response.text()
+            response = await session.request('GET', self.rss, timeout=20)
+            content = await response.text()
         except Exception as e:
             logger_debug.error('{}: RSS - {}'.format(e.__class__.__name__, self.name))
             return
@@ -440,3 +439,4 @@ if __name__ == '__main__':
 
     loop = asyncio.get_event_loop()
     loop.run_until_complete(main(loop))
+    loop.close()

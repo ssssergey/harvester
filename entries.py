@@ -19,8 +19,7 @@ class Entry():
     async def download_entry(self, session):
         print('Start downloading {}'.format(self.link))
         try:
-            with async_timeout.timeout(30):
-                response = await session.get(self.link)
+            response = await session.request('GET', self.link, timeout=20)
             print('Finish downloading {}'.format(self.link))
             body = await response.read()
             body = body.decode(encoding=self.publisher.encoding)
