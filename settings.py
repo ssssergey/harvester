@@ -40,9 +40,9 @@ USE_MONGODB = os.environ.get('MONGODB', False)
 USE_ELASTICSEARCH = os.environ.get('ELASTICSEARCH', False)
 
 # POSTGRESQL
-PG_DB = os.environ.get('PG_DB')
+PG_DB = os.environ.get('PG_NAME')
 PG_USER = os.environ.get('PG_USER')
-PG_PASSWORD = os.environ.get('PG_PASSWORD')
+PG_PASSWORD = os.environ.get('PG_PASS')
 
 # MONGODB
 MONGO_HOST = os.environ.get('MONGO_HOST', 'localhost')
