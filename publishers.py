@@ -221,19 +221,14 @@ class Unian(BasePublisher):
 
     def parse_body(self, soup, main_text=''):
         main_text_list = []
-        if soup.find('div', {'class': 'article_body'}):
-            for everyitem in soup.find('div', {'class': 'article_body'}).findAll('p', recursive=False):
-                if "Читайте также" not in everyitem.text:
-                    main_text_list.append(everyitem)
-        if soup.find('div', {'class': 'article-text'}):
-            for everyitem in soup.find('div', {'class': 'article-text'}).findAll('p', recursive=False):
-                if "Читайте также" not in everyitem.text:
-                    main_text_list.append(everyitem)
-        if main_text == '' and soup.find('span', {'itemprop': 'articleBody'}):
+        if soup.find('span', {'itemprop': 'articleBody'}):
             for everyitem in soup.find('span', {'itemprop': 'articleBody'}).findAll('p', recursive=False):
-                if "Читайте также" not in everyitem.text:
-                    main_text_list.append(everyitem)
-        main_text_list = [i.text.strip() for i in main_text_list if i and i.text]
+                p = everyitem.text
+                stop_words = ['Читайте также', 'Читайте о самых важных', 'Теги:']
+                if any([stop_word in p for stop_word in stop_words]):
+                    continue
+                else:
+                    main_text_list.append(p.strip())
         main_text = '\n'.join(main_text_list)
         return main_text
 
@@ -243,9 +238,12 @@ class Ukrinform(BasePublisher):
     rss = 'http://www.ukrinform.ru/rss/'
 
     def parse_body(self, soup, main_text=''):
-        divs = self.get_divs(soup, ['newsText'], tag='article')
+        divs = self.get_divs(soup, ['newsHeading'])
         for div in divs:
-            for everyitem in div.findAll('p', recursive=False):
+            main_text += '\n' + div.text
+        divs = self.get_divs(soup, ['newsText'])
+        for div in divs:
+            for everyitem in div.findAll('p'):
                 if "Читайте также:" not in everyitem.text:
                     main_text += '\n' + everyitem.text
         return main_text
@@ -347,6 +345,10 @@ class Rosbalt(BasePublisher):
 
     def parse_body(self, soup, main_text=''):
         main_text = self.get_main_text(soup, ['newstext'])
+        if not main_text:
+            divs = self.get_divs(soup, ['newstext'])
+            for div in divs:
+                main_text += '\n' + div.text
         return main_text
 
 
@@ -430,7 +432,7 @@ class ArmenPress(BasePublisher):
 if __name__ == '__main__':
     async def main(loop):
         async with aiohttp.ClientSession(loop=loop) as session:
-            publisher = Lenta()
+            publisher = Unian()
             try:
                 await publisher.filter_links_from_rss(session)
             except Exception as e:

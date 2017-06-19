@@ -38,6 +38,8 @@ class Entry():
                 logger_debug.error('{}: Parse Error: {}'.format(e.__class__.__name__, self.link))
                 return
             self.strip_main_text()
+            print(self.title)
+            print(self.link)
             print(self.main_text)
             self.define_country()
             await save_entry(self)
